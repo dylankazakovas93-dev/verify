@@ -1,0 +1,82 @@
+touches built: 1838
+
+################ STAGE 1 ################
+
+=== A) ORIGINAL engine (SAL sees SIZED pnl) -- headline reproduction ===
+  n                          1328
+  raw_net_pts                37303.1
+  weighted_net_ptct          37303.1
+  dollar_NQ                  746062.0
+  dollar_MNQ                 74606.0
+  pf_raw                     1.903
+  pf_weighted                1.903
+  outright_wr_%              43.0
+  target_hit_rate_exBE_%     31.2
+  twr_TP/(TP+SL)_%           85.2
+  be_rate_%                  30.7
+  loss_rate_%                26.3
+  avg_winner                 137.7
+  avg_loser                  -118.3
+  maxdd_raw                  -1532.2
+  maxdd_weighted             -1532.2
+  exits                      TP=287 SL=50 BE=408 cut=583
+
+=== B) CORRECTED engine (SAL decoupled: raw sign/exit only) ===
+  n                          1328
+  raw_net_pts                32860.0
+  weighted_net_ptct          37303.1
+  dollar_NQ                  746062.0
+  dollar_MNQ                 74606.0
+  pf_raw                     1.836
+  pf_weighted                1.903
+  outright_wr_%              43.0
+  target_hit_rate_exBE_%     31.2
+  twr_TP/(TP+SL)_%           85.2
+  be_rate_%                  30.7
+  loss_rate_%                26.3
+  avg_winner                 126.4
+  avg_loser                  -112.6
+  maxdd_raw                  -1234.6
+  maxdd_weighted             -1532.2
+  exits                      TP=287 SL=50 BE=408 cut=583
+
+=== A vs B: did sizing change trade admission? ===
+  original kept n = 1328   decoupled kept n = 1328
+  original weighted net = 37303.1
+  decoupled weighted net = 37303.1
+  admission delta (trades) = 0
+
+=== round-number sizing contribution (decoupled) ===
+  doubled trades: 102 of 1328
+  net w/o doubling (raw):     32860.0   PF 1.836
+  net w/  doubling (weighted):37303.1   PF 1.903
+  extra pts purely from 2x:   4443.1
+
+=== per-year (ORIGINAL, sized pnl) ===
+ year   n     net    pf  TP  SL  BE  cut
+ 2018 155  2260.7 1.975  38   2  46   69
+ 2019 155   621.3 1.256  20   2  46   87
+ 2020 163  3972.1 1.792  31   6  58   68
+ 2021 151  4038.6 1.778  38   7  47   59
+ 2022 145  2316.9 1.301  31   7  37   70
+ 2023 150  3050.1 1.855  25   4  57   64
+ 2024 147  2863.8 1.401  30  11  40   66
+ 2025 184 12211.6 3.139  53   8  51   72
+ 2026  78  5967.8 3.691  21   3  26   28
+
+=== per-year (CORRECTED, raw pnl) ===
+ year   n     net    pf  TP  SL  BE  cut
+ 2018 155  1673.5 1.722  38   2  46   69
+ 2019 155   290.6 1.120  20   2  46   87
+ 2020 163  3743.6 1.808  31   6  58   68
+ 2021 151  3299.1 1.674  38   7  47   59
+ 2022 145  3022.1 1.432  31   7  37   70
+ 2023 150  2712.8 1.782  25   4  57   64
+ 2024 147  2564.8 1.377  30  11  40   66
+ 2025 184 10731.0 2.924  53   8  51   72
+ 2026  78  4822.6 3.209  21   3  26   28
+
+=== recency / concentration (corrected, raw) ===
+  2025+2026: 47.3% of raw net
+  in-sample yrs: 47.8% of raw net
+  best year 2025: 32.7% of raw net
