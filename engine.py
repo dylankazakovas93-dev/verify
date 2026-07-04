@@ -16,6 +16,7 @@ import math
 from dataclasses import dataclass, replace
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 TRADING_DAYS_PER_YEAR = 252
@@ -247,10 +248,15 @@ def build_touches(bars: pd.DataFrame, vol: pd.Series, level_params: LevelParams,
 
 def sim_trade(bars: pd.DataFrame, touched_at, path_end, entry: float, sign: float,
               anchor: float, exe: ExecParams):
-    """Cheap stage: stop/target/BE/trail simulation for one touch."""
+    """Cheap stage: stop/target/BE/trail simulation for one touch.
+
+    Returns (pnl, exit_reason, exit_time, bars_held) -- exit_time/bars_held
+    let callers compute holding-period stats (frequency, avg hold, whether
+    exits stay intraday) without re-simulating.
+    """
     path = bars.loc[touched_at: path_end].iloc[1:]
     if path.empty:
-        return 0.0, "cutoff"
+        return 0.0, "cutoff", path_end, 0
 
     sl_d = exe.sl_distance(anchor)
     tp_d = exe.tp_distance(anchor)
@@ -292,13 +298,13 @@ def sim_trade(bars: pd.DataFrame, touched_at, path_end, entry: float, sign: floa
 
             if sign > 0:
                 if l <= stp:
-                    return sign * (stp - entry), ("BE" if (i >= exe.be_bars and armed) else "SL")
+                    return sign * (stp - entry), ("BE" if (i >= exe.be_bars and armed) else "SL"), path.index[i], i + 1
                 if h >= tgt:
                     engaged, best = True, h
                     continue
             else:
                 if h >= stp:
-                    return sign * (stp - entry), ("BE" if (i >= exe.be_bars and armed) else "SL")
+                    return sign * (stp - entry), ("BE" if (i >= exe.be_bars and armed) else "SL"), path.index[i], i + 1
                 if l <= tgt:
                     engaged, best = True, l
                     continue
@@ -307,24 +313,26 @@ def sim_trade(bars: pd.DataFrame, touched_at, path_end, entry: float, sign: floa
                 best = max(best, h)
                 ts_ = best - trail_d
                 if l <= ts_:
-                    return ts_ - entry, "TP"
+                    return ts_ - entry, "TP", path.index[i], i + 1
             else:
                 best = min(best, l) if best else l
                 ts_ = best + trail_d
                 if h >= ts_:
-                    return entry - ts_, "TP"
+                    return entry - ts_, "TP", path.index[i], i + 1
 
     last = sign * (cl[-1] - entry)
-    return last, ("cutoff_eng" if engaged else "cutoff")
+    return last, ("cutoff_eng" if engaged else "cutoff"), path.index[-1], len(path)
 
 
 def score_touches(touches: pd.DataFrame, bars: pd.DataFrame, exe: ExecParams) -> pd.DataFrame:
     rows = []
     for r in touches.itertuples(index=False):
-        pnl, ex = sim_trade(bars, r.touched_at, r.path_end, r.level, r.sign, r.anchor, exe)
+        pnl, ex, exit_time, bars_held = sim_trade(bars, r.touched_at, r.path_end, r.level, r.sign, r.anchor, exe)
         size_mult = exe.round_size_mult if near_round_number(r.level, exe.round_step, exe.round_tol) else 1.0
+        hold_min = (exit_time - r.touched_at).total_seconds() / 60.0
         rows.append({"sess_date": r.sess_date, "year": r.year, "touched_at": r.touched_at,
-                      "pnl": pnl * size_mult, "exit": ex})
+                      "pnl": pnl * size_mult, "exit": ex, "exit_time": exit_time,
+                      "bars_held": bars_held, "hold_min": hold_min})
     return pd.DataFrame(rows)
 
 
@@ -363,4 +371,58 @@ def summarize(kept: pd.DataFrame) -> dict:
         "maxdd": round(maxdd(p), 1), "twr": round(tp / denom * 100, 1) if denom else None,
         "tp": tp, "sl": sl, "be": ex.get("BE", 0),
         "cut": ex.get("cutoff", 0) + ex.get("cutoff_eng", 0),
+    }
+
+
+def sharpe(s: pd.Series) -> float | None:
+    """Per-trade Sharpe, annualized by sqrt(n) (n trades treated as n return periods)."""
+    if len(s) < 2 or s.std(ddof=1) == 0:
+        return None
+    return float(s.mean() / s.std(ddof=1) * math.sqrt(len(s)))
+
+
+def sortino(s: pd.Series) -> float | None:
+    """Per-trade Sortino: mean / downside semi-deviation (targeted at 0), annualized by sqrt(n)."""
+    downside = np.sqrt(np.mean(np.minimum(s.values, 0.0) ** 2))
+    if len(s) < 2 or downside == 0:
+        return None
+    return float(s.mean() / downside * math.sqrt(len(s)))
+
+
+def summarize_extended(kept: pd.DataFrame, years_spanned: float | None = None) -> dict:
+    """summarize() plus R:R, outright WR, Sharpe/Sortino, annualized net, hold-time stats."""
+    base = summarize(kept)
+    if kept.empty:
+        return {**base, "outright_wr": None, "rr_realized": None, "sharpe": None,
+                "sortino": None, "ann_net": None, "avg_hold_min": None,
+                "median_hold_min": None, "pct_overnight": None}
+
+    p = kept["pnl"]
+    wins, losses = p[p > 0], p[p < 0]
+    outright_wr = round((p > 0).mean() * 100, 1)
+    avg_win = float(wins.mean()) if len(wins) else None
+    avg_loss = float(losses.mean()) if len(losses) else None
+    rr_realized = round(abs(avg_win / avg_loss), 3) if avg_win and avg_loss else None
+
+    if years_spanned is None:
+        years_spanned = (kept["touched_at"].max() - kept["touched_at"].min()).days / 365.25
+    ann_net = round(p.sum() / years_spanned, 1) if years_spanned and years_spanned > 0 else None
+
+    hold = kept["hold_min"] if "hold_min" in kept.columns else None
+    pct_overnight = None
+    if "exit_time" in kept.columns:
+        entry_date = kept["touched_at"].dt.tz_convert("America/New_York").dt.date
+        exit_date = kept["exit_time"].dt.tz_convert("America/New_York").dt.date
+        pct_overnight = round((exit_date != entry_date).mean() * 100, 1)
+
+    return {
+        **base,
+        "outright_wr": outright_wr,
+        "rr_realized": rr_realized,
+        "sharpe": round(sharpe(p), 3) if sharpe(p) is not None else None,
+        "sortino": round(sortino(p), 3) if sortino(p) is not None else None,
+        "ann_net": ann_net,
+        "avg_hold_min": round(hold.mean(), 1) if hold is not None else None,
+        "median_hold_min": round(hold.median(), 1) if hold is not None else None,
+        "pct_held_overnight": pct_overnight,
     }
