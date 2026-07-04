@@ -337,8 +337,19 @@ def score_touches(touches: pd.DataFrame, bars: pd.DataFrame, exe: ExecParams) ->
 
 
 def apply_sal(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Stop-After-Loss: first real loss in a session blocks further entries
+    that session. Ties (two levels touched in the same 1-minute bar) must
+    use a stable sort -- pandas' default quicksort has no tie-break
+    guarantee, so a session with simultaneous touches would silently pick
+    a different "first" trade (and therefore a different SAL outcome)
+    depending on what subset/order of rows happened to reach this function.
+    kind="stable" preserves input row order for ties, so build_touches'
+    own iteration order (levels oldest-created first, upper before lower)
+    is the deterministic tie-break, regardless of how the caller sliced df.
+    """
     kept = []
-    for _, day in df.sort_values("touched_at").groupby("sess_date"):
+    for _, day in df.sort_values("touched_at", kind="stable").groupby("sess_date"):
         lost = False
         for _, row in day.iterrows():
             if not lost:

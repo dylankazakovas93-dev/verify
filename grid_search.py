@@ -12,11 +12,10 @@ each holding prior stages' winners fixed and searching one axis:
   4. trailing stop     : trail_frac
   5. round-number size : round_tol x round_size_mult
 
-Touches are built once per instrument (expensive stage, level-gen fixed at
-that instrument's current config) and reused across every combo in every
-stage. Scored on IN_SAMPLE_YEARS only; out-of-sample is reported for the
-winner of each stage for a generalization sanity check, not used to pick
-the winner.
+`staged_search()` runs this against whatever touch set it's handed --
+used both for the single 2018/2021/2025 in-sample split (run_instrument,
+below) and for each window of the rolling walk-forward
+(walkforward.py), so the same search logic backs both.
 
 NQ and ES are run independently start to finish -- winners from one are
 never applied to the other.
@@ -27,9 +26,7 @@ range (more risk mechanically buys more net/PF with no penalty) and blew
 up drawdown 4x for a marginal profit gain. This version computes the true
 baseline's in-sample maxDD once (ExecParams() locked defaults) and rejects
 any candidate whose in-sample maxDD exceeds MAX_DD_MULT x that baseline,
-before ranking survivors on net/PF. Ranges are also widened past every
-value that got edge-clipped last time so a winner mid-range means an
-actual optimum, not a wall.
+before ranking survivors on net/PF.
 """
 from __future__ import annotations
 
@@ -63,26 +60,104 @@ ROUND_TOLS = [0, 1, 2, 3, 5, 8, 12, 15, 20]
 ROUND_MULTS = [1.25, 1.5, 2.0, 3.0, 4.0]
 
 
-def score(touches, bars, exe: ExecParams) -> dict:
-    scored = score_touches(touches, bars, exe)
-    kept = apply_sal(scored)
-    ins = kept[kept["year"].isin(IN_SAMPLE_YEARS)]
-    oos = kept[~kept["year"].isin(IN_SAMPLE_YEARS)]
-    return {"in": summarize(ins), "oos": summarize(oos), "all": summarize(kept)}
-
-
 def make_rank_key(baseline_maxdd: float):
     dd_budget = MAX_DD_MULT * abs(baseline_maxdd)
 
-    def rank_key(r: dict) -> tuple:
-        dd = abs(r["in"]["maxdd"])
-        pf = r["in"]["pf"] if r["in"]["pf"] is not None else 0.0
+    def rank_key(s: dict) -> tuple:
+        dd = abs(s["maxdd"])
+        pf = s["pf"] if s["pf"] is not None else 0.0
         pf = pf if pf != float("inf") else 1e9
         within_budget = dd <= dd_budget
-        # candidates blowing the DD budget always rank below any that don't,
-        # regardless of net -- net/PF only break ties within the budget
-        return (within_budget, r["in"]["net"], pf)
+        return (within_budget, s["net"], pf)
     return rank_key
+
+
+def staged_search(train_touches: pd.DataFrame, bars: pd.DataFrame, cap_ceilings: list,
+                   verbose: bool = True, log_rows: list | None = None) -> ExecParams:
+    """Run all 5 stages against train_touches only, return the winning ExecParams."""
+    def score(exe: ExecParams) -> dict:
+        return summarize(apply_sal(score_touches(train_touches, bars, exe)))
+
+    base = ExecParams()
+    baseline_maxdd = score(base)["maxdd"]
+    rank_key = make_rank_key(baseline_maxdd)
+    if verbose:
+        print(f"train baseline maxDD: {baseline_maxdd}  budget={MAX_DD_MULT}x="
+              f"{MAX_DD_MULT*abs(baseline_maxdd):.1f}  (n_train={len(train_touches)})")
+
+    # stage 1: risk sizing
+    best_key, best_exe = None, None
+    for mult, ceil in itertools.product(CAP_MULTS, cap_ceilings):
+        exe = replace(base, cap_mult=mult, cap_ceiling=ceil)
+        s = score(exe)
+        if log_rows is not None:
+            log_rows.append({"stage": 1, "cap_mult": mult, "cap_ceiling": ceil, **s})
+        k = rank_key(s)
+        if best_key is None or k > best_key:
+            best_key, best_exe = k, exe
+    if verbose:
+        print(f"  stage1: cap_mult={best_exe.cap_mult} cap_ceiling={best_exe.cap_ceiling}")
+    base = best_exe
+
+    # stage 2: asymmetric R:R
+    best_key, best_exe = None, None
+    for sl_r, tp_r in itertools.product(RR_RATIOS, RR_RATIOS):
+        exe = replace(base, sl_mult=base.cap_mult * sl_r, tp_mult=base.cap_mult * tp_r)
+        s = score(exe)
+        if log_rows is not None:
+            log_rows.append({"stage": 2, "sl_ratio": sl_r, "tp_ratio": tp_r, **s})
+        k = rank_key(s)
+        if best_key is None or k > best_key:
+            best_key, best_exe = k, exe
+    if verbose:
+        print(f"  stage2: sl_mult={best_exe.sl_mult:.3f} tp_mult={best_exe.tp_mult:.3f}")
+    base = best_exe
+
+    # stage 3: BE mechanics/timing
+    best_key, best_exe = None, None
+    for bb, mech in itertools.product(BE_BARS_GRID, BE_MECHANICS):
+        exe = replace(base, be_bars=bb, be_mechanic=mech)
+        s = score(exe)
+        if log_rows is not None:
+            log_rows.append({"stage": 3, "be_bars": bb, "be_mechanic": mech, **s})
+        k = rank_key(s)
+        if best_key is None or k > best_key:
+            best_key, best_exe = k, exe
+    if verbose:
+        print(f"  stage3: be_bars={best_exe.be_bars} be_mechanic={best_exe.be_mechanic}")
+    base = best_exe
+
+    # stage 4: trailing stop
+    best_key, best_exe = None, None
+    for tf in TRAIL_FRACS:
+        exe = replace(base, trail_frac=tf)
+        s = score(exe)
+        if log_rows is not None:
+            log_rows.append({"stage": 4, "trail_frac": tf, **s})
+        k = rank_key(s)
+        if best_key is None or k > best_key:
+            best_key, best_exe = k, exe
+    if verbose:
+        print(f"  stage4: trail_frac={best_exe.trail_frac}")
+    base = best_exe
+
+    # stage 5: round-number size boost
+    best_exe = base
+    best_key = rank_key(score(base))
+    for tol, mult in itertools.product(ROUND_TOLS, ROUND_MULTS):
+        if tol == 0:
+            continue
+        exe = replace(base, round_tol=tol, round_size_mult=mult)
+        s = score(exe)
+        if log_rows is not None:
+            log_rows.append({"stage": 5, "round_tol": tol, "round_size_mult": mult, **s})
+        k = rank_key(s)
+        if k > best_key:
+            best_key, best_exe = k, exe
+    if verbose:
+        print(f"  stage5: round_tol={best_exe.round_tol} round_size_mult={best_exe.round_size_mult}")
+
+    return best_exe
 
 
 def run_instrument(name: str, cfg: dict) -> None:
@@ -93,86 +168,15 @@ def run_instrument(name: str, cfg: dict) -> None:
     touches, bars = build_touches(bars, vol, cfg["level"])
     print(f"touches built: {len(touches)}  ({time.time()-t0:.1f}s)")
 
-    base = ExecParams()  # starting point: current locked-engine defaults
-    baseline_maxdd = score(touches, bars, base)["in"]["maxdd"]
-    rank_key = make_rank_key(baseline_maxdd)
-    print(f"true baseline in-sample maxDD: {baseline_maxdd}  "
-          f"(DD budget for all candidates: {MAX_DD_MULT} x = {MAX_DD_MULT*abs(baseline_maxdd):.1f})")
-    log_rows = []
+    train_touches = touches[touches["year"].isin(IN_SAMPLE_YEARS)]
+    log_rows: list = []
+    best_exe = staged_search(train_touches, bars, cfg["cap_ceilings"], verbose=True, log_rows=log_rows)
 
-    # ── stage 1: risk sizing ──────────────────────────────────────────────
-    print("\n-- stage 1: cap_mult x cap_ceiling --")
-    best, best_key = None, None
-    for mult, ceil in itertools.product(CAP_MULTS, cfg["cap_ceilings"]):
-        exe = replace(base, cap_mult=mult, cap_ceiling=ceil)
-        r = score(touches, bars, exe)
-        log_rows.append({"stage": 1, "cap_mult": mult, "cap_ceiling": ceil, **r["in"]})
-        k = rank_key(r)
-        if best_key is None or k > best_key:
-            best_key, best, best_exe = k, r, exe
-    print(f"winner: cap_mult={best_exe.cap_mult} cap_ceiling={best_exe.cap_ceiling}  "
-          f"in={best['in']}  oos={best['oos']}")
-    base = best_exe
+    kept_all = apply_sal(score_touches(touches, bars, best_exe))
+    ins = kept_all[kept_all["year"].isin(IN_SAMPLE_YEARS)]
+    oos = kept_all[~kept_all["year"].isin(IN_SAMPLE_YEARS)]
+    final = {"in": summarize(ins), "oos": summarize(oos), "all": summarize(kept_all)}
 
-    # ── stage 2: asymmetric R:R ────────────────────────────────────────────
-    print("\n-- stage 2: sl_ratio x tp_ratio (off stage-1 base) --")
-    best, best_key = None, None
-    for sl_r, tp_r in itertools.product(RR_RATIOS, RR_RATIOS):
-        exe = replace(base, sl_mult=base.cap_mult * sl_r, tp_mult=base.cap_mult * tp_r)
-        r = score(touches, bars, exe)
-        log_rows.append({"stage": 2, "sl_ratio": sl_r, "tp_ratio": tp_r, **r["in"]})
-        k = rank_key(r)
-        if best_key is None or k > best_key:
-            best_key, best, best_exe = k, r, exe
-    print(f"winner: sl_mult={best_exe.sl_mult:.3f} tp_mult={best_exe.tp_mult:.3f}  "
-          f"in={best['in']}  oos={best['oos']}")
-    base = best_exe
-
-    # ── stage 3: BE mechanics/timing ───────────────────────────────────────
-    print("\n-- stage 3: be_bars x be_mechanic --")
-    best, best_key = None, None
-    for bb, mech in itertools.product(BE_BARS_GRID, BE_MECHANICS):
-        exe = replace(base, be_bars=bb, be_mechanic=mech)
-        r = score(touches, bars, exe)
-        log_rows.append({"stage": 3, "be_bars": bb, "be_mechanic": mech, **r["in"]})
-        k = rank_key(r)
-        if best_key is None or k > best_key:
-            best_key, best, best_exe = k, r, exe
-    print(f"winner: be_bars={best_exe.be_bars} be_mechanic={best_exe.be_mechanic}  "
-          f"in={best['in']}  oos={best['oos']}")
-    base = best_exe
-
-    # ── stage 4: trailing stop ─────────────────────────────────────────────
-    print("\n-- stage 4: trail_frac --")
-    best, best_key = None, None
-    for tf in TRAIL_FRACS:
-        exe = replace(base, trail_frac=tf)
-        r = score(touches, bars, exe)
-        log_rows.append({"stage": 4, "trail_frac": tf, **r["in"]})
-        k = rank_key(r)
-        if best_key is None or k > best_key:
-            best_key, best, best_exe = k, r, exe
-    print(f"winner: trail_frac={best_exe.trail_frac}  in={best['in']}  oos={best['oos']}")
-    base = best_exe
-
-    # ── stage 5: round-number size boost ───────────────────────────────────
-    print("\n-- stage 5: round_tol x round_size_mult --")
-    best_exe = base
-    best = score(touches, bars, base)
-    best_key = rank_key(best)
-    for tol, mult in itertools.product(ROUND_TOLS, ROUND_MULTS):
-        if tol == 0:
-            continue
-        exe = replace(base, round_tol=tol, round_size_mult=mult)
-        r = score(touches, bars, exe)
-        log_rows.append({"stage": 5, "round_tol": tol, "round_size_mult": mult, **r["in"]})
-        k = rank_key(r)
-        if k > best_key:
-            best_key, best, best_exe = k, r, exe
-    print(f"winner: round_tol={best_exe.round_tol} round_size_mult={best_exe.round_size_mult}  "
-          f"in={score(touches, bars, best_exe)['in']}  oos={score(touches, bars, best_exe)['oos']}")
-
-    final = score(touches, bars, best_exe)
     print(f"\nFINAL config for {name.upper()}: {best_exe}")
     print(f"in-sample : {final['in']}")
     print(f"out-of-sample: {final['oos']}")
