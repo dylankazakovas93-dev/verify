@@ -1,0 +1,72 @@
+You are backtesting an NQ futures level-fade strategy. The strategy is profitable.
+Your job is to run it on the data provided and report real numbers — do not engineer
+or adjust results to match any target; just report what comes out.
+
+## Data you need
+
+1. NQ 1-minute OHLCV CSV (columns: timestamp/datetime, open, high, low, close)
+   — timezone: America/New_York, or naive (will be treated as ET)
+2. VXN daily CSV (columns: date, close)
+   — VXN = CBOE Nasdaq-100 Volatility Index, used as the implied-vol input
+
+## Files provided
+
+  levels.py    — level generation (formula, IB calculation, sigma offsets)
+  simulate.py  — full strategy simulation (all rules below are coded here)
+
+## Strategy rules (already implemented — do not change the logic)
+
+LEVEL FORMULA (NQ_PARAMS):
+  sigma_day      = cash_open * (vxn_prior_close / 100) / sqrt(252)
+  imp_up/dn      = cash_open ± 1.25 * sigma_day
+  IB window      = 60 minutes from 09:30 ET
+  ib_ext_up/dn   = ib_high/low ± ib_range
+  upper_level    = (ib_ext_up + imp_up) / 2 - 15.75
+  lower_level    = (ib_ext_dn + imp_dn) / 2 + 15.75
+  Level live-at  = first bar at/after 10:30 ET
+
+ENTRY:
+  - Fade upper_level SHORT on first touch from below (prev close < level, bar high >= level)
+  - Fade lower_level LONG  on first touch from above (prev close > level, bar low  <= level)
+  - Only ONE entry per level per session
+  - Levels stay active for LINE_DAYS=20 sessions from creation
+  - Entry window: from level creation (≈10:30 ET) through 11:00 ET only
+  - No new entries between 11:00 and session end
+
+STOP / EXIT:
+  - Initial stop: sl_pts below entry (long) / above entry (short)  ← tune this param
+  - Conditional BE@45: at bar 45 from entry, if trade is in profit → move stop to entry
+  - Trailing stop: once unrealised profit hits 200 pts, arm a 20-pt trail behind running peak
+    (trail stop = entry + (peak_unreal - 20) for long, mirror for short)
+    Stop when trail is triggered → classified as TP
+  - Exit at stop hit: if within ±5 pts of entry → BE; if trail armed → TP; otherwise → SL
+  - Session cutoff: force-close any open position at 15:00 ET (classified as "cutoff")
+
+SAL (Stop-After-Loss):
+  - If a trade exits as SL in a session, no further entries that session
+
+## How to run
+
+```python
+from levels import load_1m_ohlcv, load_vxn_daily, NQ_PARAMS
+from simulate import simulate, summary
+
+ohlcv = load_1m_ohlcv("your_nq_1m.csv")
+vxn   = load_vxn_daily("vxn_daily.csv")
+
+trades = simulate(ohlcv, vxn, sl_pts=100)   # start with sl_pts=100, tune from there
+print(summary(trades))
+print(trades.head(20).to_string())
+```
+
+## What to report
+
+For each sl_pts value tested:
+  n, net (pts), PF, tWR%, TP count, SL count, BE count, cutoff count,
+  avg_win, avg_loss, max_drawdown
+  + monthly net P&L table
+  + equity curve if possible
+
+Start with sl_pts in the range 75–125 and report the full sensitivity sweep.
+Do NOT adjust the logic to hit any specific PF or tWR target — report what
+the data actually produces.
