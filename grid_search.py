@@ -20,6 +20,16 @@ the winner.
 
 NQ and ES are run independently start to finish -- winners from one are
 never applied to the other.
+
+DD-aware objective: the first pass at this (see git history) ranked purely
+on in-sample net/PF, which walked every axis to the edge of its searched
+range (more risk mechanically buys more net/PF with no penalty) and blew
+up drawdown 4x for a marginal profit gain. This version computes the true
+baseline's in-sample maxDD once (ExecParams() locked defaults) and rejects
+any candidate whose in-sample maxDD exceeds MAX_DD_MULT x that baseline,
+before ranking survivors on net/PF. Ranges are also widened past every
+value that got edge-clipped last time so a winner mid-range means an
+actual optimum, not a wall.
 """
 from __future__ import annotations
 
@@ -35,21 +45,22 @@ from engine import (
 )
 
 IN_SAMPLE_YEARS = {2018, 2021, 2025}
+MAX_DD_MULT = 1.5  # candidate's in-sample |maxDD| may not exceed this x the true baseline's
 
 INSTRUMENTS = {
     "nq": {"bars": "data/nq_1m_2018_2026.csv.gz", "vol": "data/vxn_daily.csv",
-           "level": NQ_LEVEL_PARAMS, "cap_ceilings": [100, 150, 200, 250, 300, 400]},
+           "level": NQ_LEVEL_PARAMS, "cap_ceilings": [100, 150, 200, 250, 300, 400, 500, 600]},
     "es": {"bars": "data/es_1m_2018_2026.csv.gz", "vol": "data/vix_daily.csv",
-           "level": ES_LEVEL_PARAMS, "cap_ceilings": [15, 20, 25, 30, 40, 50, 75, 100]},
+           "level": ES_LEVEL_PARAMS, "cap_ceilings": [15, 20, 25, 30, 40, 50, 75, 100, 150]},
 }
 
-CAP_MULTS = [1.0, 1.25, 1.5, 1.75, 2.0, 2.5]
-RR_RATIOS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
-BE_BARS_GRID = [15, 30, 45, 60, 90, 120]
+CAP_MULTS = [1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
+RR_RATIOS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
+BE_BARS_GRID = [15, 30, 45, 60, 90, 120, 150, 180]
 BE_MECHANICS = ["open_cross", "close_cross"]
-TRAIL_FRACS = [0.0, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50]
-ROUND_TOLS = [0, 1, 2, 3, 5, 8]
-ROUND_MULTS = [1.5, 2.0, 3.0]
+TRAIL_FRACS = [0.0, 0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.75]
+ROUND_TOLS = [0, 1, 2, 3, 5, 8, 12, 15, 20]
+ROUND_MULTS = [1.25, 1.5, 2.0, 3.0, 4.0]
 
 
 def score(touches, bars, exe: ExecParams) -> dict:
@@ -60,10 +71,18 @@ def score(touches, bars, exe: ExecParams) -> dict:
     return {"in": summarize(ins), "oos": summarize(oos), "all": summarize(kept)}
 
 
-def rank_key(r: dict) -> tuple:
-    pf = r["in"]["pf"] if r["in"]["pf"] is not None else 0.0
-    pf = pf if pf != float("inf") else 1e9
-    return (r["in"]["net"], pf)
+def make_rank_key(baseline_maxdd: float):
+    dd_budget = MAX_DD_MULT * abs(baseline_maxdd)
+
+    def rank_key(r: dict) -> tuple:
+        dd = abs(r["in"]["maxdd"])
+        pf = r["in"]["pf"] if r["in"]["pf"] is not None else 0.0
+        pf = pf if pf != float("inf") else 1e9
+        within_budget = dd <= dd_budget
+        # candidates blowing the DD budget always rank below any that don't,
+        # regardless of net -- net/PF only break ties within the budget
+        return (within_budget, r["in"]["net"], pf)
+    return rank_key
 
 
 def run_instrument(name: str, cfg: dict) -> None:
@@ -75,6 +94,10 @@ def run_instrument(name: str, cfg: dict) -> None:
     print(f"touches built: {len(touches)}  ({time.time()-t0:.1f}s)")
 
     base = ExecParams()  # starting point: current locked-engine defaults
+    baseline_maxdd = score(touches, bars, base)["in"]["maxdd"]
+    rank_key = make_rank_key(baseline_maxdd)
+    print(f"true baseline in-sample maxDD: {baseline_maxdd}  "
+          f"(DD budget for all candidates: {MAX_DD_MULT} x = {MAX_DD_MULT*abs(baseline_maxdd):.1f})")
     log_rows = []
 
     # ── stage 1: risk sizing ──────────────────────────────────────────────
@@ -134,8 +157,9 @@ def run_instrument(name: str, cfg: dict) -> None:
 
     # ── stage 5: round-number size boost ───────────────────────────────────
     print("\n-- stage 5: round_tol x round_size_mult --")
-    best, best_key = base, rank_key(score(touches, bars, base))
     best_exe = base
+    best = score(touches, bars, base)
+    best_key = rank_key(best)
     for tol, mult in itertools.product(ROUND_TOLS, ROUND_MULTS):
         if tol == 0:
             continue
