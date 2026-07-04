@@ -1,4 +1,4 @@
 ExecParams(cap_mult=4.0, sl_mult=10.0, tp_mult=8.0, cap_ceiling=75, be_bars=180, be_mechanic='open_cross', be_lock_frac=0.0, trail_frac=0.75, round_step=50.0, round_tol=20, round_size_mult=1.25)
-in-sample: {'n': 485, 'net': np.float64(5248.8), 'pf': 2.673, 'maxdd': -189.6, 'twr': np.float64(56.8), 'tp': np.int64(21), 'sl': np.int64(16), 'be': np.int64(141), 'cut': np.int64(307)}
-out-of-sample: {'n': 777, 'net': np.float64(6328.1), 'pf': 1.9, 'maxdd': -600.5, 'twr': np.float64(45.5), 'tp': np.int64(30), 'sl': np.int64(36), 'be': np.int64(231), 'cut': np.int64(480)}
-all: {'n': 1262, 'net': np.float64(11576.9), 'pf': 2.138, 'maxdd': -600.5, 'twr': np.float64(49.5), 'tp': np.int64(51), 'sl': np.int64(52), 'be': np.int64(372), 'cut': np.int64(787)}
+in-sample: {'n': 485, 'net': np.float64(5266.3), 'pf': 2.688, 'maxdd': -189.6, 'twr': np.float64(56.8), 'tp': np.int64(21), 'sl': np.int64(16), 'be': np.int64(141), 'cut': np.int64(307)}
+out-of-sample: {'n': 777, 'net': np.float64(6329.6), 'pf': 1.9, 'maxdd': -604.4, 'twr': np.float64(45.5), 'tp': np.int64(30), 'sl': np.int64(36), 'be': np.int64(231), 'cut': np.int64(480)}
+all: {'n': 1262, 'net': np.float64(11595.9), 'pf': 2.142, 'maxdd': -604.4, 'twr': np.float64(49.5), 'tp': np.int64(51), 'sl': np.int64(52), 'be': np.int64(372), 'cut': np.int64(787)}
