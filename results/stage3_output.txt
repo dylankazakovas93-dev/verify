@@ -1,0 +1,21 @@
+causal-series touches: 1834
+
+=== edge survival (raw single-contract pnl) ===
+  causal series, ALL trades          : {'n': 1331, 'net': np.float64(33744.0), 'pf': 1.865, 'maxdd': -1234.6}
+  shipped series baseline (Stage 1)   : n=1328 net=32860.0 pf=1.836
+  exclude cross-contract (75 trades): {'n': 1256, 'net': np.float64(31139.5), 'pf': 1.841, 'maxdd': -1285.5}
+  exclude +/-5 sessions of roll (223 trades): {'n': 1108, 'net': np.float64(25568.9), 'pf': 1.743, 'maxdd': -1322.3}
+  exclude BOTH: {'n': 1091, 'net': np.float64(24294.3), 'pf': 1.709, 'maxdd': -1322.3}
+
+=== per-year after both exclusions ===
+      size     sum
+year              
+2018   127  1612.0
+2019   120   120.0
+2020   138  2169.2
+2021   120  1624.6
+2022   122  3334.7
+2023   127  2630.0
+2024   125   491.5
+2025   142  7681.3
+2026    70  4631.1
