@@ -62,8 +62,12 @@ print(summary(trades))
 
 - [x] Strategy code (`levels.py`, `simulate.py`) committed.
 - [x] VXN daily data committed.
-- [ ] NQ 1-minute OHLCV data — pending, to be added next.
-- [ ] Backtest run + sensitivity sweep results reported (blocked on NQ data).
+- [x] NQ 1-minute OHLCV data committed (`data/raw_databento/` raw Databento
+      dumps + `build_nq_data.py` to derive the continuous front-month series
+      + `data/nq_1m_2018_2026.csv.gz`, the built series used for the backtest).
+- [x] Backtest run + sensitivity sweep results reported — see
+      `results/RESULTS.md`.
 
 Report actual output only — the logic in `levels.py`/`simulate.py` is not to
-be adjusted to hit any target PF/tWR.
+be adjusted to hit any target PF/tWR. Result: at every sl_pts value tested
+(75-125), the strategy is net negative with PF < 1 over 2018-2026.
