@@ -1,45 +1,26 @@
 # verify
 
-Reproducible backtests of intraday level-fade strategies on NQ and ES futures.
+Reproducible backtest of an NQ futures intraday level-fade strategy.
 
 ## Contents
-
-### Original fixed-stop engine (NQ only)
 
 - `levels.py` — level generation: sigma-day formula, IB (initial balance)
   calculation, sigma offsets. Produces `upper_level` / `lower_level` per
   session from 1-minute OHLCV + daily VXN closes.
 - `simulate.py` — full strategy simulation: entries (first-touch fade),
   stop/exit rules (fixed stop, conditional break-even at bar 45, 200pt-trigger
-  20pt trailing stop), session cutoff, and Stop-After-Loss (SAL).
+  20pt trailing stop), session cutoff, and Stop-After-Loss (SAL). Enforces
+  **one open position at a time per session** via an explicit `active`
+  trade state — no new entry is considered while a trade is still open.
 - `run_backtest.py` — CLI entry point that runs the sl_pts sensitivity sweep
   and prints summary stats + monthly P&L per value.
-
-### Locked cond-BE45 + 10%-trail engine (NQ and ES)
-
-- `nq_verify.py` — self-contained, NQ-only version of this engine (as
-  supplied for independent verification).
-- `futures_verify.py` — same trade logic as `nq_verify.py`, generalized to
-  take instrument params (`sigma_mult`, `offset_pct`/`fixed_offset`,
-  `ib_minutes`) so NQ and ES share one implementation. Overnight entry
-  window (19:00–11:00 ET next session, skip 11:00–15:00), dynamic
-  cap = min(1.5 × prior completed 1h range, 200pts) used as both stop and
-  TP-engagement threshold, conditional BE@45, 10%-of-cap trailing stop once
-  price reaches the cap, SAL.
-
-### Data
-
 - `data/vxn_daily.csv` — CBOE Nasdaq-100 Volatility Index daily closes, vol
   input for NQ levels.
-- `data/vix_daily.csv` — official CBOE VIX daily OHLC (`VIX_History.csv`),
-  2017-01 through the most recent close available, vol input for ES levels.
-- `data/raw_databento/`, `data/raw_databento_es/` — raw Databento GLBX.MDP3
-  1-minute dumps (every simultaneously-listed contract) for NQ and ES.
-- `build_futures_data.py` — derives a continuous front-month series from the
-  raw dumps (highest-daily-volume contract per session, no price
-  adjustment across rolls): `python3 build_futures_data.py {nq,es}` ->
-  `data/nq_1m_2018_2026.csv.gz` / `data/es_1m_2018_2026.csv.gz`.
-- `docs/prompt_for_claude*.txt` — the task specifications as given, in order.
+- `data/nq_1m_2018_2026.csv.gz` — continuous front-month NQ, 2018-2026,
+  built from raw Databento GLBX.MDP3 dumps (`data/raw_databento/`) via
+  `build_futures_data.py` (highest-volume quarterly H/M/U/Z contract per
+  session, monotonic roll, no price adjustment across rolls).
+- `docs/prompt_for_claude.txt` — the original task specification.
 
 ## Strategy rules (implemented in code — do not change without discussion)
 
@@ -49,18 +30,13 @@ See `docs/prompt_for_claude.txt` for the full rule set. Summary:
   `imp_up/dn = cash_open ± 1.25*sigma_day`; IB = first 60 min from 09:30 ET;
   `upper/lower_level = avg(ib_ext, imp) ∓ 15.75`; live at first bar ≥ 10:30 ET.
 - **Entry**: fade on first touch from the appropriate side, one entry per
-  level per session, entry window 10:30–11:00 ET only.
+  level per session, entry window 10:30–11:00 ET only, **only while no
+  other position is open**.
 - **Levels expire** after `LINE_DAYS=20` sessions from creation.
 - **Exit**: fixed stop (`sl_pts`, tuned parameter); conditional BE at bar 45
   if in profit; trailing stop arms at +200pts unrealised, trails 20pts behind
   peak; session force-close at 15:00 ET; Stop-After-Loss (no re-entry same
   session after an SL exit).
-
-## Data needed to run
-
-1. **NQ 1-minute OHLCV CSV** (`timestamp`/`datetime`, `open`, `high`, `low`,
-   `close`) — not yet committed to this repo, to be provided separately.
-2. **VXN daily CSV** — already in `data/vxn_daily.csv`.
 
 ## How to run
 
@@ -83,20 +59,28 @@ print(summary(trades))
 
 ## Status
 
-- [x] Original fixed-stop engine (`levels.py`/`simulate.py`) verified on NQ,
-      2018-2026: net negative, PF < 1 at every sl_pts from 75-125 — see
-      `results/RESULTS.md`.
-- [x] Locked cond-BE45 + 10%-trail engine (`nq_verify.py`) verified on NQ,
-      2018-2026: net +18056.7pts, PF 1.787, tWR 59.0% — see
-      `results/nq_verify_output.txt`.
-- [x] Same engine (`futures_verify.py`) run on ES with VIX as the vol input,
-      2018-2026: net +3111.3pts, PF 1.641, tWR 55.2% — see
-      `results/es_benchmark_no_vix_gate_output.txt`. This is in the same
-      direction as an external report for this exact config (net 3832.76,
-      PF 1.794, tWR 63.21%) but not an exact match, most likely due to
-      differences in how the continuous ES series / VIX source were built —
-      not yet reconciled.
-- [ ] In-sample (2018/2021/2025) parameter grid search — not started.
+- [x] Fixed-stop engine (`levels.py`/`simulate.py`) verified on NQ,
+      2018-2026: **net negative, PF < 1 at every sl_pts from 75-125** — see
+      `results/RESULTS.md`. This is the only engine in this repo's history
+      that correctly enforces one position open at a time; it is the real,
+      current state of this strategy.
+- [ ] Everything else attempted after this (a self-contained "locked"
+      engine variant, its generalization to ES, a parameter grid search,
+      and a walk-forward test) has been removed from this repo. All of it
+      shared one underlying simulation approach that evaluated each
+      level's touch independently, with no check for whether another
+      trade was already open — confirmed to allow genuinely overlapping
+      simultaneous positions (147 overlapping trade-pairs across 120
+      sessions found in a single spot-check), which is not a valid trading
+      constraint. Every profitable number produced by that lineage (the
+      NQ "locked" baseline, every tuned NQ variant, and the entire ES
+      analysis, which was never run through anything else) inherited this
+      flaw. None of it should be treated as validated. `data/es_1m_2018_2026.csv.gz`,
+      `data/vix_daily.csv`, `data/raw_databento_es/`, and
+      `build_futures_data.py` are kept since they're just data, reusable
+      once a correctly-constrained (single-position) ES engine exists.
+- [ ] A correctly-constrained ES backtest (mirroring `simulate.py`'s
+      single-active-position design) has not yet been built.
 
 Report actual output only — logic is not to be adjusted to hit any target
 PF/tWR.
