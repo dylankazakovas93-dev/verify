@@ -1,0 +1,4 @@
+ExecParams(cap_mult=2.5, sl_mult=7.5, tp_mult=5.0, cap_ceiling=300, be_bars=90, be_mechanic='open_cross', be_lock_frac=0.0, trail_frac=0.0, round_step=50.0, round_tol=8, round_size_mult=3.0)
+in-sample: {'n': 498, 'net': np.float64(24408.8), 'pf': 2.136, 'maxdd': -2714.1, 'twr': np.float64(80.4), 'tp': np.int64(123), 'sl': np.int64(30), 'be': np.int64(165), 'cut': np.int64(180)}
+out-of-sample: {'n': 823, 'net': np.float64(19463.7), 'pf': 1.468, 'maxdd': -2478.9, 'twr': np.float64(74.1), 'tp': np.int64(149), 'sl': np.int64(52), 'be': np.int64(265), 'cut': np.int64(357)}
+all: {'n': 1321, 'net': np.float64(43872.4), 'pf': 1.696, 'maxdd': -2714.1, 'twr': np.float64(76.8), 'tp': np.int64(272), 'sl': np.int64(82), 'be': np.int64(430), 'cut': np.int64(537)}
