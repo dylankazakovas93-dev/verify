@@ -1,0 +1,22 @@
+=== per-year saturation ===
+ year   n  stop_cap_pct  tgt_cap_pct  med_uncap_stop  med_uncap_tgt  med_act_stop  med_act_tgt  med_1h_range  med_prior_atr  med_price  avg_risk_mnq
+ 2018 153          28.8          4.6           198.0           82.0         198.0         82.0          16.5           88.0     7092.0         398.0
+ 2019 151          29.1          4.6           225.0           94.0         225.0         94.0          18.8           91.0     7703.0         427.0
+ 2020 163          71.8         32.5           456.0          190.0         300.0        190.0          38.0          210.0    10164.0         540.0
+ 2021 151          72.8         29.8           462.0          192.0         300.0        192.0          38.5          189.0    14051.0         551.0
+ 2022 143          91.6         45.5           666.0          278.0         300.0        278.0          55.5          313.0    12268.0         590.0
+ 2023 152          74.3         28.9           484.0          202.0         300.0        202.0          40.4          223.0    14697.0         564.0
+ 2024 151          82.1         33.1           507.0          211.0         300.0        211.0          42.2          250.0    18831.0         563.0
+ 2025 189          89.4         48.1           699.0          291.0         300.0        291.0          58.2          326.0    22944.0         586.0
+ 2026  78          98.7         70.5          1047.0          436.0         300.0        300.0          87.2          418.0    25376.0         598.0
+
+=== volatility quintiles (by prior_1h_range = anchor) ===
+  Q1_low   n= 270 anchor[3-19] net=  1756.4 pf=1.369 avg=   6.5 maxdd=  -986.4 stopcap%=   0 tgtcap%=   0
+  Q2       n= 263 anchor[19-31] net=  5556.8 pf=1.749 avg=  21.1 maxdd=  -935.3 stopcap%=  50 tgtcap%=   0
+  Q3       n= 268 anchor[31-48] net=  2354.3 pf=1.252 avg=   8.8 maxdd=  -910.6 stopcap%= 100 tgtcap%=   0
+  Q4       n= 264 anchor[48-84] net=  6301.4 pf=1.719 avg=  23.9 maxdd= -1353.3 stopcap%= 100 tgtcap%=  57
+  Q5_high  n= 266 anchor[85-570] net= 17775.1 pf=3.036 avg=  66.8 maxdd=  -907.2 stopcap%= 100 tgtcap%= 100
+
+=== overall ===
+  stop capped: 69.8%   target capped: 31.3%
+  median actual stop 300pt ($600 1xMNQ), target 188pt

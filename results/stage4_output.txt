@@ -1,0 +1,19 @@
+kept trades (winner, causal): 1331
+
+=== concurrency (unrestricted) ===
+  max: 7
+  median_while_exposed: 1.0
+  p95: 3.0
+  p99: 4.0
+
+=== results under concurrency caps (raw pnl) ===
+  unrestricted: {'n': 1331, 'net': 33744.0, 'pf': 1.865, 'maxdd': -1234.6}
+  max 2 open: {'n': 1239, 'net': 24238.6, 'pf': 1.621, 'maxdd': -1464.8}   max_combined_stop_risk_pts=600  (=$1200 1xMNQ each)
+  max 1 open: {'n': 1037, 'net': 7109.4, 'pf': 1.185, 'maxdd': -2875.6}   max_combined_stop_risk_pts=300  (=$600 1xMNQ each)
+  max combined open stop risk, UNRESTRICTED: 1956 pts  (=$3912 on 1 MNQ each)
+
+=== dedup same-direction near-levels (raw pnl) ===
+  tol  2pt: {'n': 1300, 'net': 31435.8, 'pf': 1.806, 'maxdd': -1234.6}   dropped 31
+  tol  5pt: {'n': 1269, 'net': 29453.8, 'pf': 1.755, 'maxdd': -1234.6}   dropped 62
+  tol 10pt: {'n': 1231, 'net': 26835.9, 'pf': 1.688, 'maxdd': -1234.6}   dropped 100
+  tol 20pt: {'n': 1167, 'net': 21419.1, 'pf': 1.555, 'maxdd': -1234.6}   dropped 164
