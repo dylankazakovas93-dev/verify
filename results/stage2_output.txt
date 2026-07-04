@@ -1,0 +1,33 @@
+=== overnight cutoff boundary (touch ET -> cutoff) ; assert cutoff>entry or dropped ===
+  10:59 entry_allowed=True  sess=2022-06-15 cutoff=2022-06-15 15:00:00-04:00 OK
+  11:00 entry_allowed=False sess=2022-06-15 cutoff=2022-06-15 15:00:00-04:00 OK
+  14:59 entry_allowed=False sess=2022-06-15 cutoff=2022-06-15 15:00:00-04:00 OK
+  15:00 entry_allowed=True  sess=2022-06-15 cutoff=None DROPPED(co=None)
+  15:01 entry_allowed=True  sess=2022-06-15 cutoff=None DROPPED(co=None)
+  18:59 entry_allowed=True  sess=2022-06-15 cutoff=None DROPPED(co=None)
+  19:00 entry_allowed=True  sess=2022-06-16 cutoff=2022-06-16 15:00:00-04:00 OK
+  19:01 entry_allowed=True  sess=2022-06-16 cutoff=2022-06-16 15:00:00-04:00 OK
+  23:59 entry_allowed=True  sess=2022-06-16 cutoff=2022-06-16 15:00:00-04:00 OK
+  00:01 entry_allowed=True  sess=2022-06-15 cutoff=2022-06-15 15:00:00-04:00 OK
+  09:30 entry_allowed=True  sess=2022-06-15 cutoff=2022-06-15 15:00:00-04:00 OK
+
+=== invariant: exit_time >= entry for all admitted trades ===
+  violations: 0 of 1328   PASS
+
+=== VXN strict-priority (no same-day close used) ===
+  session 2019-03-15: uses VXN close dated 2019-03-14 (< 2019-03-15? True)
+  session 2020-03-16: uses VXN close dated 2020-03-13 (< 2020-03-16? True)
+  session 2021-11-05: uses VXN close dated 2021-11-04 (< 2021-11-05? True)
+  session 2025-01-10: uses VXN close dated 2025-01-08 (< 2025-01-10? True)
+  session 2018-02-05: uses VXN close dated 2018-02-02 (< 2018-02-05? True)
+  PASS
+
+=== OPTIMISM (i): gap-through-stop fills ===
+  stop/BE exits examined: 458
+  exits where bar OPENED beyond the stop (gap): 3 (0.7%)
+  mean adverse gap on those: 17.45 pts;  max 41.6
+  total unmodeled adverse (pts, single-contract): 52.4
+
+=== OPTIMISM (ii): trail_frac=0 TP books running-max high, not target ===
+  TP exits: 287;  mean pts booked OVER target distance: 12.83
+  total optimistic excess on winners (pts): 3683.2
