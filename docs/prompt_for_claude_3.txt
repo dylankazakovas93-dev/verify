@@ -1,0 +1,24 @@
+Independent verification of an NQ futures level-fade backtest.
+The strategy is profitable. Run the code on the data provided and report
+exactly what comes out. Do not change any logic. Do not sweep parameters.
+
+## Files attached
+
+  nq_verify.py           — the entire backtest engine, single self-contained file
+  vxn_daily_2018_2026.csv — VXN daily closes (already the correct vol input for NQ)
+  [your NQ 1-minute CSV] — place this wherever you like, reference in the command below
+
+## Command
+
+  python3 nq_verify.py --bars YOUR_NQ_1M.csv --vxn vxn_daily_2018_2026.csv
+
+## What to report
+
+Copy the full printed output exactly:
+  - "raw touches (pre-SAL): ..." line
+  - "kept (post-SAL): ..." line
+  - The per-year table (Year, n, net, PF, maxDD, TP, SL, BE, cut)
+  - The ALL totals row
+  - The tWR line at the bottom
+
+Nothing else. No parameter changes. No rewriting.
