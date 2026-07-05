@@ -1,11 +1,11 @@
-n=3093
-{'n': 3093, 'net': np.float64(3918.27), 'pf': np.float64(1.227), 'twr_pct': 51.3, 'tp': 479, 'sl': 455, 'be': 309, 'cutoff': 1850, 'max_dd': np.float64(-1924.01)}
-2018 {'n': 381, 'net': np.float64(-269.6), 'pf': np.float64(0.887), 'twr_pct': 46.5, 'tp': 53, 'sl': 61, 'be': 31, 'cutoff': 236, 'max_dd': np.float64(-598.1)}
-2019 {'n': 368, 'net': np.float64(-412.85), 'pf': np.float64(0.861), 'twr_pct': 44.9, 'tp': 44, 'sl': 54, 'be': 34, 'cutoff': 236, 'max_dd': np.float64(-533.79)}
-2020 {'n': 380, 'net': np.float64(174.63), 'pf': np.float64(1.098), 'twr_pct': 46.2, 'tp': 42, 'sl': 49, 'be': 45, 'cutoff': 244, 'max_dd': np.float64(-1105.17)}
-2021 {'n': 349, 'net': np.float64(1413.07), 'pf': np.float64(1.649), 'twr_pct': 62.4, 'tp': 68, 'sl': 41, 'be': 33, 'cutoff': 207, 'max_dd': np.float64(-410.84)}
-2022 {'n': 377, 'net': np.float64(1481.87), 'pf': np.float64(1.436), 'twr_pct': 56.9, 'tp': 66, 'sl': 50, 'be': 44, 'cutoff': 217, 'max_dd': np.float64(-785.25)}
-2023 {'n': 345, 'net': np.float64(-818.7), 'pf': np.float64(0.852), 'twr_pct': 46.6, 'tp': 55, 'sl': 63, 'be': 35, 'cutoff': 192, 'max_dd': np.float64(-1140.82)}
-2024 {'n': 374, 'net': np.float64(-269.08), 'pf': np.float64(1.141), 'twr_pct': 48.4, 'tp': 59, 'sl': 63, 'be': 37, 'cutoff': 215, 'max_dd': np.float64(-557.25)}
-2025 {'n': 364, 'net': np.float64(1303.75), 'pf': np.float64(1.361), 'twr_pct': 53.5, 'tp': 68, 'sl': 59, 'be': 34, 'cutoff': 203, 'max_dd': np.float64(-1019.23)}
-2026 {'n': 155, 'net': np.float64(1315.18), 'pf': np.float64(1.717), 'twr_pct': 61.5, 'tp': 24, 'sl': 15, 'be': 16, 'cutoff': 100, 'max_dd': np.float64(-500.67)}
+n=2963
+{'n': 2963, 'net': np.float64(3801.94), 'pf': np.float64(1.103), 'twr_pct': 50.4, 'tp': 566, 'sl': 556, 'be': 391, 'cutoff': 1450, 'max_dd': np.float64(-1710.59)}
+2018 {'n': 364, 'net': np.float64(118.62), 'pf': np.float64(1.053), 'twr_pct': 48.9, 'tp': 67, 'sl': 70, 'be': 45, 'cutoff': 182, 'max_dd': np.float64(-394.71)}
+2019 {'n': 345, 'net': np.float64(-511.66), 'pf': np.float64(0.756), 'twr_pct': 41.4, 'tp': 48, 'sl': 68, 'be': 40, 'cutoff': 189, 'max_dd': np.float64(-650.1)}
+2020 {'n': 372, 'net': np.float64(119.26), 'pf': np.float64(1.031), 'twr_pct': 47.2, 'tp': 51, 'sl': 57, 'be': 58, 'cutoff': 206, 'max_dd': np.float64(-1256.06)}
+2021 {'n': 329, 'net': np.float64(1385.15), 'pf': np.float64(1.361), 'twr_pct': 59.1, 'tp': 78, 'sl': 54, 'be': 37, 'cutoff': 160, 'max_dd': np.float64(-418.34)}
+2022 {'n': 363, 'net': np.float64(1133.84), 'pf': np.float64(1.208), 'twr_pct': 55.6, 'tp': 79, 'sl': 63, 'be': 54, 'cutoff': 167, 'max_dd': np.float64(-605.89)}
+2023 {'n': 328, 'net': np.float64(-799.36), 'pf': np.float64(0.841), 'twr_pct': 43.8, 'tp': 64, 'sl': 82, 'be': 44, 'cutoff': 138, 'max_dd': np.float64(-1185.66)}
+2024 {'n': 361, 'net': np.float64(-272.86), 'pf': np.float64(0.953), 'twr_pct': 47.7, 'tp': 71, 'sl': 78, 'be': 52, 'cutoff': 160, 'max_dd': np.float64(-644.66)}
+2025 {'n': 347, 'net': np.float64(1849.5), 'pf': np.float64(1.303), 'twr_pct': 56.5, 'tp': 83, 'sl': 64, 'be': 43, 'cutoff': 157, 'max_dd': np.float64(-639.9)}
+2026 {'n': 154, 'net': np.float64(779.45), 'pf': np.float64(1.313), 'twr_pct': 55.6, 'tp': 25, 'sl': 20, 'be': 18, 'cutoff': 91, 'max_dd': np.float64(-500.67)}

@@ -34,7 +34,7 @@ LINE_DAYS      = 20
 SL_CAP         = 200.0
 CAP_MULT       = 1.5
 BE_BAR         = 45
-ENTRY_BLOCK    = (11 * 60, 15 * 60)   # skip 11:00-15:00 ET
+ENTRY_BLOCK    = (11 * 60, 19 * 60)   # skip 11:00-19:00 ET (no new entries until reentry window)
 SESSION_CUTOFF_MIN = 15 * 60          # 15:00 ET
 REENTRY_MIN        = 19 * 60          # 19:00 ET
 
@@ -137,6 +137,8 @@ def simulate_dynamic_cap(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -
         anchor = anchor_arr[i]
         cap = cap_arr[i]
 
+        exited_this_bar = False
+
         if active is not None:
             active.bar_count += 1
 
@@ -150,7 +152,7 @@ def simulate_dynamic_cap(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -
                 active.exit_time, active.exit_price = t, op[i]
                 active.exit_reason, active.pnl = "cutoff", round(active.unrealised(op[i]), 2)
                 trades.append(active)
-                active = None
+                active, exited_this_bar = None, True
             else:
                 stop_hit = (hi[i] >= active.stop) if active.side == "short" else (lo[i] <= active.stop)
                 tgt_hit = (lo[i] <= active.target) if active.side == "short" else (hi[i] >= active.target)
@@ -162,15 +164,17 @@ def simulate_dynamic_cap(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -
                     active.exit_time, active.exit_price = t, active.stop
                     active.exit_reason, active.pnl = reason, pnl
                     trades.append(active)
-                    active = None
+                    active, exited_this_bar = None, True
                 elif tgt_hit:
                     pnl = round(active.unrealised(active.target), 2)
                     active.exit_time, active.exit_price = t, active.target
                     active.exit_reason, active.pnl = "TP", pnl
                     trades.append(active)
-                    active = None
+                    active, exited_this_bar = None, True
 
-        if (active is None and not sal_triggered and prev_close is not None
+        # no same-minute exit -> re-entry: a position that just closed this bar
+        # cannot be replaced by a new one until the next bar.
+        if (active is None and not exited_this_bar and not sal_triggered and prev_close is not None
                 and not (ENTRY_BLOCK[0] <= minute_of_day[i] < ENTRY_BLOCK[1])
                 and anchor is not None and not np.isnan(anchor) and cap > 0
                 and len(elig_created) > 0):
@@ -179,11 +183,21 @@ def simulate_dynamic_cap(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -
                 for j in np.nonzero(live_mask)[0]:
                     ldate = elig_sessdate[j]
                     upper, lower = elig_upper[j], elig_lower[j]
-                    if (ldate, "upper") not in used_sides and prev_close < upper <= hi[i]:
+                    # touch condition ported verbatim from the uploaded reactions.py
+                    # _first_touch(): level inside the bar's range, OR close crosses
+                    # it relative to the prior bar's close -- broader than a simple
+                    # prev_close-vs-high/low crossing check.
+                    touched_upper = (hi[i] >= upper and lo[i] <= upper) or \
+                                     (cl[i] >= upper and prev_close < upper) or \
+                                     (cl[i] <= upper and prev_close > upper)
+                    touched_lower = (hi[i] >= lower and lo[i] <= lower) or \
+                                     (cl[i] >= lower and prev_close < lower) or \
+                                     (cl[i] <= lower and prev_close > lower)
+                    if (ldate, "upper") not in used_sides and touched_upper:
                         active = _Trade(sess, t, upper, "short", upper + cap, upper - cap, ldate)
                         used_sides.add((ldate, "upper"))
                         break
-                    if (ldate, "lower") not in used_sides and prev_close > lower >= lo[i]:
+                    if (ldate, "lower") not in used_sides and touched_lower:
                         active = _Trade(sess, t, lower, "long", lower - cap, lower + cap, ldate)
                         used_sides.add((ldate, "lower"))
                         break
@@ -211,10 +225,13 @@ def summary(df: pd.DataFrame) -> dict:
     if df.empty:
         return {}
     tp, sl = df[df["exit_reason"] == "TP"], df[df["exit_reason"] == "SL"]
-    gross_w, gross_l = tp["pnl"].sum(), sl["pnl"].abs().sum()
+    p = df["pnl"]
+    # PF must include every realized trade (TP/SL/BE/cutoff can each be
+    # positive or negative), not just TP wins over SL losses.
+    gross_w, gross_l = p[p > 0].sum(), -p[p < 0].sum()
     twr_n = len(tp) + len(sl)
     return {
-        "n": len(df), "net": round(df["pnl"].sum(), 2),
+        "n": len(df), "net": round(p.sum(), 2),
         "pf": round(gross_w / gross_l, 3) if gross_l else None,
         "twr_pct": round(len(tp) / twr_n * 100, 1) if twr_n else None,
         "tp": len(tp), "sl": len(sl),
