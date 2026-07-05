@@ -101,7 +101,8 @@ def build_candidates(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -> pd
 
     for i, lv in enumerate(lvls):
         expiry = lvls[i + LINE_DAYS].created_at if i + LINE_DAYS < len(lvls) else bars.index[-1]
-        search = bars.loc[lv.created_at: expiry]
+        # no creation-bar entry, expiry timestamp excluded: strictly between
+        search = bars[(bars.index > lv.created_at) & (bars.index < expiry)]
         for side, col in (("upper", lv.upper_level), ("lower", lv.lower_level)):
             level = float(col)
             ft = first_touch(search, level)
@@ -176,7 +177,7 @@ def replay(bars: pd.DataFrame, cand: pd.DataFrame):
                 active.exit_reason, active.pnl = "cutoff", round(active.unrealised(op[i]), 2)
                 executed.append(active)
                 active = None
-            cur_sess, sal_triggered = sess, False
+            cur_sess, sal_triggered = sess, False  # new session: SAL always resets here regardless
 
         exited_this_bar = False
 
@@ -190,8 +191,17 @@ def replay(bars: pd.DataFrame, cand: pd.DataFrame):
 
             minute_of_day = t.tz_convert("America/New_York").hour * 60 + t.tz_convert("America/New_York").minute
             if minute_of_day >= SESSION_CUTOFF_MIN:
+                pnl = round(active.unrealised(op[i]), 2)
+                # negative cutoff exits do trigger SAL (matches nq_cond_be45.py's
+                # apply_sal: any exit with pnl < -0.1 and reason != BE). In this
+                # engine's time structure this is a no-op in practice -- cutoff
+                # only fires at/after 15:00, which is always after the 11:00
+                # entry-window close, so no further same-session entry could
+                # occur regardless -- but implemented for spec correctness.
+                if pnl < -0.1:
+                    sal_triggered = True
                 active.exit_time, active.exit_price = t, op[i]
-                active.exit_reason, active.pnl = "cutoff", round(active.unrealised(op[i]), 2)
+                active.exit_reason, active.pnl = "cutoff", pnl
                 executed.append(active)
                 active, exited_this_bar = None, True
             else:
@@ -200,7 +210,7 @@ def replay(bars: pd.DataFrame, cand: pd.DataFrame):
                 if stop_hit:
                     pnl = round(active.unrealised(active.stop), 2)
                     reason = "BE" if active.armed_be else "SL"
-                    if reason == "SL":
+                    if reason != "BE" and pnl < -0.1:
                         sal_triggered = True
                     active.exit_time, active.exit_price = t, active.stop
                     active.exit_reason, active.pnl = reason, pnl
