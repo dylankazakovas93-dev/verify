@@ -1,24 +1,29 @@
 """
-Single-position-constrained variant of the dynamic-cap level-fade engine.
+ALTERNATIVE_RETEST_ELIGIBLE -- single-position dynamic-cap level-fade
+engine, retest-eligible variant. NOT the canonical first-touch strategy;
+see simulate_strict_first_touch.py for that.
 
-Ports the specific rules described in the uploaded nq_cond_be45.py (cap =
-min(1.5 x prior completed 1h range, 200), TP = SL = cap, conditional BE@45
-via the bar-open check, 19:00-11:00 ET entry window with 11:00-15:00
-skipped, session spans 19:00 ET -> next-day 15:00 ET, SAL after the first
-real loss) into this repo's own proven single-active-position state
-machine (simulate.py's design: one `active` trade at a time, no new entry
-considered while a position is open) -- the thing nq_cond_be45.py's
-build_ledger() does not do (it finds each level's touch independently
-over its whole 20-session lifetime and can open overlapping trades).
+Rule that makes this a distinct variant, stated explicitly: a level/side
+is only marked "used" once a trade actually opens from it. If its
+physical first touch occurs while another position is already open, the
+touch is simply not evaluated (the whole entry check is gated on
+`active is None`) -- the level remains eligible and can still be entered
+on a later retest. This is a legitimate, separate strategy, not a bug,
+and is not comparable to the strict one-shot-per-level canonical baseline
+without saying so explicitly.
 
-Uses this repo's own levels.py (NQ_PARAMS, generate_levels) -- no
-dependency on the uploaded volgen module. Touch detection uses the same
-prev-close-crossing condition already verified in this repo's simulate.py
-(the uploaded volgen.reactions._first_touch implementation was not
-provided, so it is not assumed here).
+Otherwise: cap = min(1.5 x prior completed 1h range, 200), TP = SL = cap,
+conditional BE@45 via the bar-open check, 19:00-11:00 ET entry window
+(11:00-19:00 blocked), session spans 19:00 ET -> next-day 15:00 ET, SAL
+after the first real loss, no same-minute exit -> re-entry, PF sums every
+realized pnl (TP/SL/BE/cutoff). Single active position at a time,
+verified zero overlaps.
+
+Uses this repo's own levels.py (NQ_PARAMS, generate_levels) and the touch
+condition ported from the uploaded reactions.py's _first_touch().
 
 Usage:
-    python3 simulate_dynamic_cap.py path/to/nq_1m.csv data/vxn_daily.csv
+    python3 simulate_retest_eligible.py path/to/nq_1m.csv data/vxn_daily.csv
 """
 from __future__ import annotations
 
@@ -65,7 +70,7 @@ def bar_ranges(bars: pd.DataFrame) -> pd.Series:
     return r["high"] - r["low"]
 
 
-def simulate_dynamic_cap(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -> pd.DataFrame:
+def simulate_retest_eligible(bars: pd.DataFrame, vxn: pd.Series, params=NQ_PARAMS) -> pd.DataFrame:
     levels_df = generate_levels(bars, vxn, params, "09:30", "16:00")
     if levels_df.empty:
         return pd.DataFrame()
@@ -244,7 +249,7 @@ if __name__ == "__main__":
     import sys
     bars = load_1m_ohlcv(sys.argv[1] if len(sys.argv) > 1 else "data/nq_1m_2018_2026.csv.gz")
     vxn = load_vxn_daily(sys.argv[2] if len(sys.argv) > 2 else "data/vxn_daily.csv")
-    trades = simulate_dynamic_cap(bars, vxn)
+    trades = simulate_retest_eligible(bars, vxn)
     print(f"n={len(trades)}")
     print(summary(trades))
     if not trades.empty:

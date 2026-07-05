@@ -1,0 +1,12 @@
+eligible candidates: 1839
+executed: 1225   skipped: 614
+{'n': 1225, 'net': np.float64(4896.62), 'pf': np.float64(1.243), 'twr_pct': 54.2, 'tp': 329, 'sl': 278, 'be': 219, 'cutoff': 399, 'max_dd': np.float64(-1209.04)}
+2018 {'n': 142, 'net': np.float64(129.97), 'pf': np.float64(1.106), 'twr_pct': 57.7, 'tp': 41, 'sl': 30, 'be': 24, 'cutoff': 47, 'max_dd': np.float64(-237.36)}
+2019 {'n': 136, 'net': np.float64(-313.01), 'pf': np.float64(0.738), 'twr_pct': 40.3, 'tp': 27, 'sl': 40, 'be': 20, 'cutoff': 49, 'max_dd': np.float64(-436.05)}
+2020 {'n': 161, 'net': np.float64(299.85), 'pf': np.float64(1.135), 'twr_pct': 49.2, 'tp': 31, 'sl': 32, 'be': 34, 'cutoff': 64, 'max_dd': np.float64(-586.09)}
+2021 {'n': 149, 'net': np.float64(578.33), 'pf': np.float64(1.242), 'twr_pct': 60.8, 'tp': 45, 'sl': 29, 'be': 21, 'cutoff': 54, 'max_dd': np.float64(-465.85)}
+2022 {'n': 146, 'net': np.float64(1386.2), 'pf': np.float64(1.512), 'twr_pct': 58.4, 'tp': 45, 'sl': 32, 'be': 35, 'cutoff': 34, 'max_dd': np.float64(-465.82)}
+2023 {'n': 130, 'net': np.float64(-112.81), 'pf': np.float64(0.959), 'twr_pct': 52.2, 'tp': 36, 'sl': 33, 'be': 28, 'cutoff': 33, 'max_dd': np.float64(-781.26)}
+2024 {'n': 136, 'net': np.float64(-219.52), 'pf': np.float64(0.932), 'twr_pct': 46.5, 'tp': 33, 'sl': 38, 'be': 21, 'cutoff': 44, 'max_dd': np.float64(-515.03)}
+2025 {'n': 153, 'net': np.float64(1395.47), 'pf': np.float64(1.412), 'twr_pct': 58.8, 'tp': 50, 'sl': 35, 'be': 26, 'cutoff': 42, 'max_dd': np.float64(-310.5)}
+2026 {'n': 72, 'net': np.float64(1752.14), 'pf': np.float64(2.748), 'twr_pct': 70.0, 'tp': 21, 'sl': 9, 'be': 10, 'cutoff': 32, 'max_dd': np.float64(-202.7)}
